@@ -3,7 +3,7 @@
 # Đoạn mã 3.3. Các phép biến đổi cơ bản trên RDD.
 # Mã nguyên văn như trong sách (đường dẫn HDFS/Volume); bản chạy trên Colab: chXX.ipynb
 
-cau_tho = ["gio theo loi gio may duong may",
+cau_tho = ["gio theo loi gio may duong may",  # tho Han Mac Tu
            "dong nuoc buon thiu hoa bap lay",
            "thuyen ai dau ben song trang do"]
 rdd_cau = sc.parallelize(cau_tho, 2)
