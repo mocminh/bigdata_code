@@ -2,17 +2,19 @@
 
 Môi trường: PySpark 3.5.7, OpenJDK 17 (Temurin), Python 3.11, Spark local[2]; chạy bằng `python tests/run_listings.py`. Đoạn mã 7.4 cần tệp `data/movielens/ratings.csv` tải bằng `data/movielens/download_movielens.py`.
 
+Đoạn mã 2.1 và 2.7 được cập nhật theo bản in cuối của giáo trình; hai đoạn mã này (cùng các đoạn mã khác của Chương 2 và 4) được chạy lại ngày 25/9/2026 trên Python 3.11.15, OpenJDK 17.0.20.1 với cùng bộ thư viện đã ghim (pandas 2.2.2, pyarrow 16.1.0, NumPy 1.26.4), kết quả không đổi.
+
 | Đoạn mã | Tên | Kết quả | Ghi chú | Thời gian (s) |
 |---|---|---|---|---|
 | Đoạn mã 1.1 | Chương trình đếm từ bằng PySpark. | ĐẠT | bo 1 | 5.1 |
 | Đoạn mã 1.2 | Chuỗi phép biến đổi thống kê lỗi theo địa chỉ IP. | ĐẠT |  | 1.0 |
-| Đoạn mã 2.1 | Cài đặt và khởi tạo PySpark trên Google Colab. | ĐẠT | Ket qua dem: 9999999 | 5.0 |
+| Đoạn mã 2.1 | Cài đặt và khởi tạo PySpark trên Google Colab. | ĐẠT | Ket qua dem: 9999999 | 3.5 |
 | Đoạn mã 2.2 | Đọc tệp CSV đã tải lên volume trong notebook Databricks. | ĐẠT | only showing top 5 rows | 2.2 |
 | Đoạn mã 2.3 | Ứng dụng PySpark hoàn chỉnh: đọc CSV, thống kê và dừng phiên. | ĐẠT | only showing top 10 rows | 3.4 |
 | Đoạn mã 2.4 | Nộp ứng dụng lên cụm YARN bằng spark-submit. | BỎ QUA | lệnh shell spark-submit (chạy trên terminal, cần cụm YARN) | 0.0 |
 | Đoạn mã 2.5 | Phân phối mã nguồn dùng chung cho các executor. | ĐẠT | da sao chep tien_ich.zip | 0.3 |
 | Đoạn mã 2.6 | Đóng gói môi trường conda và nộp lên cụm YARN. | BỎ QUA | lệnh shell conda-pack (chỉ minh họa) | 0.0 |
-| Đoạn mã 2.7 | Cài đặt theo phiên bản đã ghim và kiểm tra môi trường thực hành. | ĐẠT | pyarrow: 16.1.0 | 8.2 |
+| Đoạn mã 2.7 | Kiểm tra môi trường thực hành sau khi cài theo phiên bản đã ghim. | ĐẠT | pyarrow: 16.1.0 | 0.3 |
 | Đoạn mã 3.1 | Khởi tạo SparkContext và tạo RDD bằng parallelize, textFile. | ĐẠT | [7.5, 8.0, 6.5] | 1.5 |
 | Đoạn mã 3.2 | Kiểm tra và điều chỉnh số partition của RDD. | ĐẠT | 16 4 | 0.0 |
 | Đoạn mã 3.3 | Các phép biến đổi cơ bản trên RDD. | ĐẠT | [7, 7, 7] | 1.0 |

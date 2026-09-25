@@ -32,6 +32,7 @@ for ch in chapters:
         if it["skip"]:
             rows.append((tag, it["title"], "BỎ QUA", it["skip"], 0.0)); continue
         t0 = time.time(); buf = io.StringIO()
+        env_truoc = dict(os.environ)   # Doan ma 2.1 dat JAVA_HOME cho Colab; khoi phuc sau moi doan ma
         try:
             with contextlib.redirect_stdout(buf):
                 if it["prep"]:
@@ -41,6 +42,7 @@ for ch in chapters:
             status, note = "ĐẠT", buf.getvalue().strip().split("\n")[-1][:80] if buf.getvalue().strip() else ""
         except Exception as e:
             status, note = "LỖI", f"{type(e).__name__}: {str(e).splitlines()[0][:160]}"
+        os.environ.clear(); os.environ.update(env_truoc)
         rows.append((tag, it["title"], status, note, time.time() - t0))
         # neu doan ma da dung phien Spark thi tao lai
         if ns["spark"]._jsc is None or ns["spark"].sparkContext._jsc is None:

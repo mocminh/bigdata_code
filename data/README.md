@@ -15,6 +15,8 @@ Các tập dữ liệu dùng trong giáo trình. Cột được liệt kê theo 
 | `access.log` | Chương 1, 3 | `<ip> <thời gian>\t<mức>\t<thông điệp>` – tách được bằng `split(" ")[0]` (IP) và `split("\t")[2]` (thông điệp) |
 | `churn.csv`, `churn.parquet`, `churn_moi.csv` | Bài 5.2, Chương 6 | `ma_kh`, `tuoi`, `goi_cuoc`, `khu_vuc`, `so_thang_su_dung`, `cuoc_hang_thang`, `tong_cuoc`, `so_lan_goi_ho_tro`, `label` |
 | `house_prices.parquet` | Chương 6 | `dien_tich`, `so_phong_ngu`, `so_phong_tam`, `khoang_cach_trung_tam`, `tuoi_nha`, `gia_nha` |
-| `movielens/ratings.csv` | Chương 7 | `userId`, `movieId`, `rating`, `timestamp` – tải bộ *ml-latest-small* từ https://grouplens.org/datasets/movielens/ (Harper & Konstan, 2015) |
+| `movielens/ratings.csv` | Chương 7 | `userId`, `movieId`, `rating`, `timestamp` – tải bộ *ml-latest-small* từ https://grouplens.org/datasets/movielens/ (Harper & Konstan, 2015); không có sẵn trong kho |
 
 Toàn bộ tệp (trừ MovieLens) được sinh bằng `generate_data.py` (dữ liệu mô phỏng, seed 2026, có thể tái lập); `churn.csv` có khoảng 2% giá trị thiếu ở `tuoi` và `cuoc_hang_thang` (dùng cho Imputer ở Bài 5.2 và Đoạn mã 6.9), `churn.parquet` là bản đã bỏ giá trị thiếu; `churn_moi.csv` gồm 500 khách hàng mới chưa có nhãn.
+
+Bộ MovieLens *ml-latest-small* thuộc GroupLens Research (Đại học Minnesota); kho mã **không kèm** `movielens/ratings.csv`. Người học tải về bằng `python data/movielens/download_movielens.py` (xem [`movielens/README.md`](movielens/README.md)) hoặc để ô chuẩn bị trong `code/ch07/ch07.ipynb` tự tải, sử dụng dữ liệu theo điều khoản sử dụng của GroupLens và trích dẫn Harper & Konstan (2015) khi công bố kết quả có dùng bộ dữ liệu này.

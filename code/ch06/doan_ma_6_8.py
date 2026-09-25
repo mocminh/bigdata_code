@@ -32,7 +32,7 @@ cv = CrossValidator(estimator=pipeline,
                     parallelism=4,
                     seed=42)
 
-# Buoc 4: huan luyen 9 x 5 = 45 mo hinh tren tap huan luyen
+# Buoc 4: 9 x 5 = 45 lan fit + 1 lan fit lai tren tap huan luyen
 cv_model = cv.fit(train_df)
 
 # Buoc 5: trich xuat mo hinh va tham so tot nhat

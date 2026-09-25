@@ -1,4 +1,5 @@
 # Môi trường tham chiếu của giáo trình Dữ liệu lớn (Chương 1–7) – Bảng 2.3
+# Ghim cho máy tự quản Python 3.11; trên Google Colab dùng ô cài đặt của notebook (Đoạn mã 2.1) thay cho tệp này
 pyspark==3.5.7
 py4j==0.10.9.7
 pandas==2.2.2

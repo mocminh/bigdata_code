@@ -20,7 +20,10 @@ with mlflow.start_run(run_name="cnn_baseline"):
         model, artifact_path="model",
         registered_model_name="cnn_classifier")
 
-# Nap phien ban dang o giai doan Production tu Model Registry
+# Gan bi danh champion cho phien ban da kiem dinh (vi du ban 1)
+client = mlflow.MlflowClient()
+client.set_registered_model_alias("cnn_classifier", "champion", 1)
+# Nap mo hinh theo bi danh, khong can biet so phien ban
 model_prod = mlflow.pyfunc.load_model(
-    "models:/cnn_classifier/Production")
+    "models:/cnn_classifier@champion")
 preds = model_prod.predict(new_data)
