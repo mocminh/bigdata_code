@@ -1,0 +1,604 @@
+{
+ "listings": [
+  {
+   "ch": 1,
+   "num": 1,
+   "title": "Chương trình đếm từ bằng PySpark.",
+   "code": "from pyspark.sql import SparkSession\n\n# Khoi tao SparkSession - diem vao thong nhat cua ung dung Spark\nspark = (SparkSession.builder\n         .appName(\"DemTuPySpark\")\n         .master(\"local[*]\")\n         .getOrCreate())\nsc = spark.sparkContext\n\n# Chuoi transformation: chua thuc thi, chi ghi nhan vao DAG\nlines = sc.textFile(\"data/vanban.txt\")\nwords = lines.flatMap(lambda line: line.split(\" \"))\npairs = words.map(lambda word: (word, 1))\ncounts = pairs.reduceByKey(lambda a, b: a + b)\n\n# Action collect() kich hoat viec thuc thi toan bo DAG\nfor word, freq in counts.collect():\n    print(word, freq)\n\n# spark.stop()  # giu phien Spark de chay tiep cac o sau",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 1,
+   "num": 2,
+   "title": "Chuỗi phép biến đổi thống kê lỗi theo địa chỉ IP.",
+   "code": "logs   = sc.textFile(\"data/access.log\")\nerrs   = logs.filter(lambda line: \"ERROR\" in line)\npairs  = errs.map(lambda line: (line.split(\" \")[0], 1))\ncounts = pairs.reduceByKey(lambda a, b: a + b)\nresult = counts.collect()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 2,
+   "num": 1,
+   "title": "Cài đặt và khởi tạo PySpark trên Google Colab.",
+   "code": "# Buoc 1: kiem tra Java co san tren may ao Colab\n!java -version\n\n# Buoc 2: cai dat PySpark tu PyPI (ghim phien ban theo Bang 2.3)\n!pip install -q pyspark==3.5.7\n\n# Buoc 3: khoi tao SparkSession o che do cuc bo\nfrom pyspark.sql import SparkSession\n\nspark = (SparkSession.builder\n         .master(\"local[*]\")\n         .appName(\"MoiTruongColab\")\n         .getOrCreate())\n\n# Buoc 4: kiem chung phien ban va chay thu mot phep dem\nprint(\"Phien ban Spark:\", spark.version)\nso_dong = spark.range(1, 10**7).count()\nprint(\"Ket qua dem:\", so_dong)",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 2,
+   "num": 2,
+   "title": "Đọc tệp CSV đã tải lên volume trong notebook Databricks.",
+   "code": "# Tren Databricks, doi tuong spark da duoc khoi tao san\ndf = (spark.read\n      .option(\"header\", True)\n      .option(\"inferSchema\", True)\n      .csv(\"data/diem_thi.csv\"))\ndf.show(5)",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 2,
+   "num": 3,
+   "title": "Ứng dụng PySpark hoàn chỉnh: đọc CSV, thống kê và dừng phiên.",
+   "code": "# Tep: ung_dung_thong_ke.py\nfrom pyspark.sql import SparkSession\nfrom pyspark.sql import functions as F\n\n# 1. Khoi tao SparkSession bang builder pattern\nspark = (SparkSession.builder\n         .master(\"local[*]\")\n         .appName(\"ThongKeDiemThi\")\n         .config(\"spark.sql.shuffle.partitions\", \"8\")\n         .getOrCreate())\n\n# 2. Doc du lieu CSV co dong tieu de, tu suy dien kieu du lieu\ndf = (spark.read\n      .option(\"header\", True)\n      .option(\"inferSchema\", True)\n      .csv(\"data/diem_thi.csv\"))\n\n# 3. Khao sat cau truc va thong ke mo ta\ndf.printSchema()\ndf.describe(\"diem_toan\", \"diem_van\").show()\n\n# 4. Dem so thi sinh va tinh diem trung binh theo tinh\nket_qua = (df.groupBy(\"ma_tinh\")\n           .agg(F.count(\"*\").alias(\"so_thi_sinh\"),\n                F.round(F.avg(\"diem_toan\"), 2)\n                 .alias(\"diem_tb_toan\"))\n           .orderBy(F.desc(\"diem_tb_toan\")))\nket_qua.show(10)\n\n# 5. Dung phien lam viec, giai phong tai nguyen\n# spark.stop()  # giu phien Spark de chay tiep cac o sau",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 2,
+   "num": 4,
+   "title": "Nộp ứng dụng lên cụm YARN bằng spark-submit.",
+   "code": "# Lenh chay tren terminal cua may client\nspark-submit \\\n  --master yarn \\\n  --deploy-mode cluster \\\n  --num-executors 4 \\\n  --executor-memory 4g \\\n  --executor-cores 2 \\\n  ung_dung_thong_ke.py",
+   "prep": null,
+   "skip": "lệnh shell spark-submit (chạy trên terminal, cần cụm YARN)"
+  },
+  {
+   "ch": 2,
+   "num": 5,
+   "title": "Phân phối mã nguồn dùng chung cho các executor.",
+   "code": "# Cach 1: khai bao khi nop ung dung\n#   spark-submit --py-files tien_ich.zip ung_dung.py\n\n# Cach 2: them tep ngay trong luc chay\nspark.sparkContext.addPyFile(\"tien_ich.zip\")\nfrom tien_ich import chuan_hoa_ten  # ham nay dung duoc trong UDF",
+   "prep": "import shutil, os\nshutil.copy(\"code/ch02/tien_ich.zip\", \"tien_ich.zip\")\nprint(\"da sao chep tien_ich.zip\")",
+   "skip": null
+  },
+  {
+   "ch": 2,
+   "num": 6,
+   "title": "Đóng gói môi trường conda và nộp lên cụm YARN.",
+   "code": "# Tren may phat trien: tao va dong goi moi truong conda\n#   conda create -y -n mtspark python=3.11 numpy pandas\n#   conda pack -n mtspark -o mtspark.tar.gz\n\n# Khi nop ung dung: gui archive kem theo va tro bien moi truong\n#   export PYSPARK_DRIVER_PYTHON=python\n#   export PYSPARK_PYTHON=./mt/bin/python\n#   spark-submit --master yarn \\\n#     --archives mtspark.tar.gz#mt \\\n#     ung_dung.py",
+   "prep": null,
+   "skip": "lệnh shell conda-pack (chỉ minh họa)"
+  },
+  {
+   "ch": 2,
+   "num": 7,
+   "title": "Cài đặt theo phiên bản đã ghim và kiểm tra môi trường thực hành.",
+   "code": "# Cai dat dung phien ban da ghim (Colab: dau !, Databricks: %pip)\n!pip install -q pyspark==3.5.7 pyarrow==16.1.0 pandas==2.2.2\n\nimport sys, platform, subprocess\nimport pyspark, pandas, pyarrow\nfrom pyspark.sql import SparkSession\n\nspark = SparkSession.builder.master(\"local[*]\").getOrCreate()\njv = subprocess.run([\"java\", \"-version\"], text=True,\n                    capture_output=True)\njava_ver = jv.stderr.splitlines()[0]\nprint(\"Python :\", sys.version.split()[0], \"-\", platform.system())\nprint(\"Java   :\", java_ver)\nprint(\"Spark  :\", spark.version, \"| pyspark\", pyspark.__version__)\nprint(\"pandas :\", pandas.__version__)\nprint(\"pyarrow:\", pyarrow.__version__)\n# Ket qua mong doi: Python 3.11.x, OpenJDK 11 hoac 17, Spark 3.5.7",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 3,
+   "num": 1,
+   "title": "Khởi tạo SparkContext và tạo RDD bằng parallelize, textFile.",
+   "code": "from pyspark.sql import SparkSession\n# Khoi tao SparkSession o che do local voi 4 luong xu ly\nspark = (SparkSession.builder\n         .appName(\"Chuong3-RDD\")\n         .master(\"local[4]\")\n         .getOrCreate())\nsc = spark.sparkContext\n# Cach 1: phan tan mot collection co san tren Driver\ndiem_thi = [7.5, 8.0, 6.5, 9.0, 5.5, 8.5, 7.0, 6.0]\nrdd_diem = sc.parallelize(diem_thi, numSlices=4)\n# Cach 2: doc du lieu tu he thong luu tru ngoai\nrdd_log = sc.textFile(\"data/access.log\")\nrdd_cucbo = sc.textFile(\"data/vidu.txt\")\nprint(rdd_diem.getNumPartitions())   # ket qua: 4\nprint(rdd_diem.take(3))              # [7.5, 8.0, 6.5]",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 3,
+   "num": 2,
+   "title": "Kiểm tra và điều chỉnh số partition của RDD.",
+   "code": "rdd_a = sc.parallelize(range(1, 100001))    # dung gia tri mac dinh\nprint(rdd_a.getNumPartitions())             # thuong = so loi CPU\nrdd_b = sc.parallelize(range(1, 100001), 8) # chi dinh 8 partition\n# repartition: tang/giam so partition, gay shuffle toan bo du lieu\nrdd_16 = rdd_b.repartition(16)\n# coalesce: giam so partition bang cach gop, tranh duoc shuffle\nrdd_4 = rdd_16.coalesce(4)\nprint(rdd_16.getNumPartitions(), rdd_4.getNumPartitions())   # 16 4",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 3,
+   "num": 3,
+   "title": "Các phép biến đổi cơ bản trên RDD.",
+   "code": "cau_tho = [\"gio theo loi gio may duong may\",\n           \"dong nuoc buon thiu hoa bap lay\",\n           \"thuyen ai dau ben song trang do\"]\nrdd_cau = sc.parallelize(cau_tho, 2)\n# map: moi cau cho ra so tu cua cau do (quan he mot-mot)\nrdd_sotu = rdd_cau.map(lambda c: len(c.split()))\n# flatMap: moi cau sinh ra nhieu tu roi lam phang thanh mot RDD\nrdd_tu = rdd_cau.flatMap(lambda c: c.split())\n# filter: giu lai cac tu co it nhat 4 ky tu\nrdd_tu_dai = rdd_tu.filter(lambda t: len(t) >= 4)\n# distinct: loai bo tu trung lap (co xao tron du lieu)\nrdd_duynhat = rdd_tu.distinct()\n# union: hop voi mot RDD khac cung kieu\nrdd_hop = rdd_tu.union(sc.parallelize([\"song\", \"nui\"]))\n# sample: lay mau ngau nhien khoang 30% so tu, khong hoan lai\nrdd_mau = rdd_tu.sample(withReplacement=False,\n                        fraction=0.3, seed=42)\nprint(rdd_sotu.collect())    # [7, 7, 7]",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 3,
+   "num": 4,
+   "title": "Chuỗi biến đổi chỉ được thực thi khi gặp action.",
+   "code": "# Ba dong duoi day hoan tat tuc thi, ke ca voi tep hang tram GB,\n# vi chua co bat ky tinh toan nao duoc thuc hien\nrdd_log = sc.textFile(\"data/access.log\")\nrdd_loi = rdd_log.filter(lambda dong: \"ERROR\" in dong)\nrdd_thongdiep = rdd_loi.map(lambda dong: dong.split(\"\\t\")[2])\n# In pha he (lineage) de quan sat chuoi phu thuoc giua cac RDD\nprint(rdd_thongdiep.toDebugString().decode(\"utf-8\"))\n# Action moi la thoi diem Spark xay DAG, toi uu va thuc thi\nso_loi = rdd_thongdiep.count()\nnam_dong_dau = rdd_thongdiep.take(5)   # chi quet du lieu vua du",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 3,
+   "num": 5,
+   "title": "Các action thông dụng trên RDD.",
+   "code": "rdd_diem = sc.parallelize([7.5, 8.0, 6.5, 9.0, 5.5, 8.5], 3)\nprint(rdd_diem.count())      # 6: tong so phan tu\nprint(rdd_diem.first())      # 7.5: phan tu dau tien\nprint(rdd_diem.take(4))      # [7.5, 8.0, 6.5, 9.0]\nprint(rdd_diem.collect())    # keo TOAN BO du lieu ve Driver\n# reduce voi ham cong: tinh tong roi suy ra diem trung binh\ntong = rdd_diem.reduce(lambda a, b: a + b)\nprint(\"Diem trung binh:\", tong / rdd_diem.count())\n# Ghi ket qua xuong HDFS, moi partition mot tep part-xxxxx\nrdd_diem.saveAsTextFile(\"output/diem\")\n# foreach chay ngay tai Executor; print nam trong log Executor\nrdd_diem.foreach(lambda x: print(x))",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 3,
+   "num": 6,
+   "title": "Đo khác biệt thời gian trước và sau khi cache RDD.",
+   "code": "import time\nfrom pyspark import StorageLevel\n\nrdd_gd = (sc.textFile(\"data/giaodich.csv\")\n          .map(lambda dong: dong.split(\",\"))\n          .filter(lambda tr: tr[3] == \"THANH CONG\"))\nt0 = time.time()\nprint(rdd_gd.count())              # lan 1: doc va loc lai tu nguon\nprint(\"Chua cache: %.2f giay\" % (time.time() - t0))\nrdd_gd.persist(StorageLevel.MEMORY_AND_DISK)\nrdd_gd.count()                     # action nap du lieu vao cache\nt1 = time.time()\nprint(rdd_gd.count())              # doc truc tiep tu bo nho dem\nprint(\"Da cache:   %.2f giay\" % (time.time() - t1))\nrdd_gd.unpersist()                 # giai phong khi khong dung nua",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 3,
+   "num": 7,
+   "title": "So sánh groupByKey và reduceByKey trên cùng bài toán.",
+   "code": "rdd_cap = sc.parallelize(\n    [(\"spark\", 1), (\"hadoop\", 1), (\"spark\", 1),\n     (\"kafka\", 1), (\"spark\", 1), (\"hadoop\", 1)], 2)\n# Cach 1: groupByKey keo toan bo gia tri cua moi khoa qua mang\nkq1 = (rdd_cap.groupByKey()\n              .mapValues(lambda ds: sum(ds))\n              .collect())\n# Cach 2: reduceByKey gop cuc bo o tung partition truoc khi shuffle\nkq2 = rdd_cap.reduceByKey(lambda a, b: a + b).collect()\n# Hai cach cho cung ket qua nhung chi phi shuffle rat khac nhau\nprint(sorted(kq1) == sorted(kq2))   # True",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 3,
+   "num": 8,
+   "title": "Chương trình đếm từ hoàn chỉnh với RDD.",
+   "code": "rdd_vanban = sc.textFile(\"data/vanban.txt\")\nrdd_demtu = (rdd_vanban\n    .flatMap(lambda dong: dong.lower().split())  # tach thanh tu\n    .map(lambda tu: (tu, 1))                     # cap (tu, 1)\n    .reduceByKey(lambda a, b: a + b))            # cong theo khoa\n# Lay 10 tu pho bien nhat: doi (tu, dem) thanh (dem, tu) roi sap xep\ntop10 = (rdd_demtu\n    .map(lambda cap: (cap[1], cap[0]))\n    .sortByKey(ascending=False)\n    .take(10))\nfor dem, tu in top10:\n    print(\"%-15s %d\" % (tu, dem))\nrdd_demtu.saveAsTextFile(\"output/demtu\")",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 3,
+   "num": 9,
+   "title": "Kết nối hai tập dữ liệu sinh viên và điểm thi.",
+   "code": "# (ma sinh vien, ho ten)\nrdd_sv = sc.parallelize([(\"SV01\", \"Nguyen Van An\"),\n                         (\"SV02\", \"Tran Thi Binh\"),\n                         (\"SV03\", \"Le Van Cuong\"),\n                         (\"SV04\", \"Pham Thi Dung\")])\n# (ma sinh vien, diem mon Du lieu lon)\nrdd_diem = sc.parallelize([(\"SV01\", 8.5), (\"SV02\", 7.0),\n                           (\"SV01\", 9.0), (\"SV05\", 6.5)])\n# join (ket noi trong): chi giu khoa co mat o CA HAI phia\nprint(rdd_sv.join(rdd_diem).collect())\n# leftOuterJoin: giu ca sinh vien chua co diem (gia tri None)\nprint(rdd_sv.leftOuterJoin(rdd_diem).collect())\n# cogroup: moi khoa kem hai day gia tri tu hai RDD\ngom = rdd_sv.cogroup(rdd_diem)\nprint([(k, (list(a), list(b))) for k, (a, b) in gom.collect()])\n# countByKey: dem so ban ghi theo khoa, tra ve dict tai Driver\nprint(dict(rdd_diem.countByKey()))\n# ket qua: {'SV01': 2, 'SV02': 1, 'SV05': 1}",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 3,
+   "num": 10,
+   "title": "Dữ liệu mẫu cho bài tập đếm từ.",
+   "code": "du_lieu = [\n    \"spark xu ly du lieu lon rat nhanh\",\n    \"rdd la nen tang cot loi cua spark\",\n    \"du lieu lon doi hoi xu ly phan tan\",\n    \"spark danh gia tre cac phep bien doi tren du lieu\"\n]",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 3,
+   "num": 11,
+   "title": "Dữ liệu mẫu cho bài tập Pair RDD.",
+   "code": "don_hang = [(\"KH01\", 250.0), (\"KH02\", 120.0), (\"KH01\", 380.0),\n            (\"KH03\", 90.0), (\"KH02\", 60.0), (\"KH01\", 45.0)]\nkhach_hang = [(\"KH01\", \"Nguyen Van An\"), (\"KH02\", \"Tran Thi Binh\"),\n              (\"KH03\", \"Le Van Cuong\"), (\"KH04\", \"Pham Thi Dung\")]",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 3,
+   "num": 12,
+   "title": "Hai nhánh phân tích dùng chung một RDD trung gian.",
+   "code": "# chuan_hoa: ham lam sach mot dong log, chi phi tinh toan lon\nlogs = sc.textFile(\"data/access.log\")\nerrs = logs.filter(lambda d: \"ERROR\" in d).map(chuan_hoa)\n\nso_loi   = errs.count()\ntheo_ip  = errs.map(lambda d: (d.split(\" \")[0], 1)) \\\n               .reduceByKey(lambda a, b: a + b).collect()",
+   "prep": "# Chuan bi: ham chuan_hoa mau (lam sach mot dong log)\ndef chuan_hoa(dong):\n    return \" \".join(dong.replace(\"\\t\", \" \").split())",
+   "skip": null
+  },
+  {
+   "ch": 4,
+   "num": 1,
+   "title": "Tạo DataFrame từ tập hợp cục bộ bằng createDataFrame.",
+   "code": "from pyspark.sql import SparkSession\n\nspark = SparkSession.builder \\\n    .appName(\"Chuong4-DataFrame\") \\\n    .getOrCreate()\n\n# Tao DataFrame tu danh sach tuple kem chuoi khai bao luoc do\ndu_lieu = [(1, \"Lan\", \"Ha Noi\", 28),\n           (2, \"Minh\", \"Da Nang\", 35),\n           (3, \"Hoa\", \"Can Tho\", 41)]\ndf_nv = spark.createDataFrame(\n    du_lieu, schema=\"ma INT, ten STRING, tinh STRING, tuoi INT\")\ndf_nv.show()\ndf_nv.printSchema()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 4,
+   "num": 2,
+   "title": "Đọc DataFrame từ các tệp CSV, JSON và Parquet.",
+   "code": "# Doc tep CSV co dong tieu de, tu suy dien kieu du lieu\ndf_csv = (spark.read\n          .option(\"header\", True)\n          .option(\"inferSchema\", True)\n          .csv(\"data/donhang.csv\"))\n\n# Doc tep JSON va tep Parquet\ndf_json = spark.read.json(\"data/khachhang.json\")\ndf_parquet = spark.read.parquet(\"data/giaodich.parquet\")",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 4,
+   "num": 3,
+   "title": "Tạo DataFrame từ RDD với lược đồ StructType tường minh.",
+   "code": "from pyspark.sql.types import (StructType, StructField,\n                               StringType, IntegerType, DoubleType)\n\nrdd = spark.sparkContext.parallelize(\n    [(\"SP01\", \"Laptop\", 25, 1500.0),\n     (\"SP02\", \"Ban phim\", 120, 25.5)])\n\nschema = StructType([\n    StructField(\"ma_sp\", StringType(), False),\n    StructField(\"ten_sp\", StringType(), True),\n    StructField(\"ton_kho\", IntegerType(), True),\n    StructField(\"gia\", DoubleType(), True)])\n\ndf_sp = spark.createDataFrame(rdd, schema)\ndf_sp.printSchema()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 4,
+   "num": 4,
+   "title": "Xem kế hoạch truy vấn bằng explain().",
+   "code": "df = spark.read.parquet(\"data/donhang.parquet\")\nket_qua = (df.filter(df.khu_vuc == \"Nam\")\n             .select(\"ma_don\", \"don_gia\")\n             .filter(df.don_gia > 100.0))\n\nket_qua.explain()                 # chi in ke hoach vat ly\nket_qua.explain(mode=\"extended\")  # in du bon giai doan ke hoach\n# Trich ke hoach vat ly (rut gon):\n# *(1) Project [ma_don, don_gia]\n# +- *(1) Filter (isnotnull(khu_vuc) AND isnotnull(don_gia)\n#                 AND (khu_vuc = Nam) AND (don_gia > 100.0))\n#    +- FileScan parquet [ma_don, don_gia, khu_vuc]\n#       PushedFilters: [IsNotNull(khu_vuc), IsNotNull(don_gia),\n#                       EqualTo(khu_vuc,Nam),\n#                       GreaterThan(don_gia,100.0)]",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 4,
+   "num": 5,
+   "title": "Khởi tạo tập dữ liệu bán hàng dùng chung cho cả chương.",
+   "code": "from pyspark.sql import functions as F\n\ndon_hang = [\n    (\"D001\", \"KH01\", \"Laptop\",     \"Dien tu\",\n     2, 1500.0, \"2024-03-01\", \"Bac\"),\n    (\"D002\", \"KH02\", \"Dien thoai\", \"Dien tu\",\n     5,  800.0, \"2024-03-02\", \"Nam\"),\n    (\"D003\", \"KH01\", \"Ao thun\",    \"Thoi trang\",\n     10,  12.5, \"2024-03-02\", \"Bac\"),\n    (\"D004\", \"KH03\", \"Tu lanh\",    \"Gia dung\",\n     1,  950.0, \"2024-03-05\", \"Trung\"),\n    (\"D005\", \"KH02\", \"Quan jean\",  \"Thoi trang\",\n     3,   45.0, \"2024-03-06\", \"Nam\"),\n    (\"D006\", \"KH04\", \"May giat\",   \"Gia dung\",\n     2,  700.0, None, \"Nam\")]\n\ncot = (\"ma_don STRING, ma_kh STRING, san_pham STRING, \"\n       \"danh_muc STRING, so_luong INT, don_gia DOUBLE, \"\n       \"ngay_dat STRING, khu_vuc STRING\")\ndf = spark.createDataFrame(don_hang, schema=cot)\ndf.show()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 4,
+   "num": 6,
+   "title": "Các thao tác select, withColumn, filter/where và orderBy.",
+   "code": "# select: chon mot so cot can quan tam\ndf.select(\"ma_don\", \"san_pham\", \"don_gia\").show(3)\n\n# withColumn: them cot thanh_tien = so_luong * don_gia\ndf2 = df.withColumn(\"thanh_tien\",\n                    F.col(\"so_luong\") * F.col(\"don_gia\"))\n\n# filter va where la hai cach viet tuong duong\ndf2.filter(F.col(\"thanh_tien\") > 1000).show()\ndf2.where(\"danh_muc = 'Dien tu' AND so_luong >= 2\").show()\n\n# orderBy: sap xep giam dan theo thanh_tien\ndf2.orderBy(F.col(\"thanh_tien\").desc()).show(5)",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 4,
+   "num": 7,
+   "title": "Tổng hợp doanh thu theo danh mục với groupBy và agg.",
+   "code": "bao_cao = (df2.groupBy(\"danh_muc\")\n    .agg(F.count(\"ma_don\").alias(\"so_don\"),\n         F.sum(\"thanh_tien\").alias(\"tong_doanh_thu\"),\n         F.avg(\"thanh_tien\").alias(\"doanh_thu_tb\"),\n         F.min(\"don_gia\").alias(\"gia_thap_nhat\"),\n         F.max(\"don_gia\").alias(\"gia_cao_nhat\"))\n    .orderBy(F.col(\"tong_doanh_thu\").desc()))\nbao_cao.show()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 4,
+   "num": 8,
+   "title": "Xử lý giá trị thiếu bằng dropna và fillna.",
+   "code": "# Loai bo cac dong thieu ngay_dat\ndf_sach = df2.dropna(subset=[\"ngay_dat\"])\n\n# Thay the gia tri thieu theo tung cot\ndf_thay = df2.fillna({\"ngay_dat\": \"1900-01-01\", \"so_luong\": 0})",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 4,
+   "num": 9,
+   "title": "Các loại join giữa bảng đơn hàng và bảng khách hàng.",
+   "code": "khach_hang = spark.createDataFrame(\n    [(\"KH01\", \"Nguyen Van An\", \"Ha Noi\"),\n     (\"KH02\", \"Tran Thi Binh\", \"TP HCM\"),\n     (\"KH05\", \"Le Van Cuong\",  \"Hue\")],\n    schema=\"ma_kh STRING, ten_kh STRING, thanh_pho STRING\")\n\ndf2.join(khach_hang, on=\"ma_kh\", how=\"inner\").show()\ndf2.join(khach_hang, on=\"ma_kh\", how=\"left\").show()\ndf2.join(khach_hang, on=\"ma_kh\", how=\"full_outer\").show()\n\n# Broadcast join: phat tan bang nho toi moi executor\nfrom pyspark.sql.functions import broadcast\ndf2.join(broadcast(khach_hang), on=\"ma_kh\", how=\"inner\").show()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 4,
+   "num": 10,
+   "title": "Đăng ký khung nhìn tạm và truy vấn bằng spark.sql.",
+   "code": "df2.createOrReplaceTempView(\"don_hang\")\n\ndoanh_thu = spark.sql(\"\"\"\n    SELECT danh_muc,\n           COUNT(ma_don)             AS so_don,\n           SUM(thanh_tien)           AS tong_doanh_thu,\n           ROUND(AVG(thanh_tien), 2) AS doanh_thu_tb\n    FROM don_hang\n    WHERE khu_vuc <> 'Trung'\n    GROUP BY danh_muc\n    HAVING SUM(thanh_tien) > 500\n    ORDER BY tong_doanh_thu DESC\n\"\"\")\ndoanh_thu.show()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 4,
+   "num": 11,
+   "title": "Khung nhìn tạm toàn cục và truy vấn join bằng SQL.",
+   "code": "khach_hang.createGlobalTempView(\"khach_hang\")\n\nspark.sql(\"\"\"\n    SELECT d.ma_don, k.ten_kh, d.san_pham, d.thanh_tien\n    FROM don_hang d\n    JOIN global_temp.khach_hang k ON d.ma_kh = k.ma_kh\n    ORDER BY d.thanh_tien DESC\n\"\"\").show()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 4,
+   "num": 12,
+   "title": "Ghi và đọc lại bảng Parquet có phân vùng theo khu vực.",
+   "code": "(df2.write\n    .mode(\"overwrite\")\n    .partitionBy(\"khu_vuc\")\n    .parquet(\"output/warehouse/don_hang_parquet\"))\n\n# Doc lai: Spark chi quet thu muc phan vung thoa dieu kien loc\ndf_nam = (spark.read.parquet(\"output/warehouse/don_hang_parquet\")\n          .filter(F.col(\"khu_vuc\") == \"Nam\"))\ndf_nam.show()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 4,
+   "num": 13,
+   "title": "Định nghĩa và đăng ký UDF cho DataFrame API và cho SQL.",
+   "code": "from pyspark.sql.functions import udf\nfrom pyspark.sql.types import StringType\n\ndef phan_loai(gia_tri):\n    if gia_tri is None:\n        return \"Khong xac dinh\"\n    if gia_tri >= 1000:\n        return \"Don lon\"\n    return \"Don thuong\"\n\n# Dang ky cho DataFrame API\nphan_loai_udf = udf(phan_loai, StringType())\ndf2.withColumn(\"loai_don\",\n               phan_loai_udf(F.col(\"thanh_tien\"))).show()\n\n# Dang ky them ten ham de goi trong cau lenh SQL\nspark.udf.register(\"PHAN_LOAI\", phan_loai, StringType())\nspark.sql(\"\"\"\n    SELECT ma_don, thanh_tien, PHAN_LOAI(thanh_tien) AS loai_don\n    FROM don_hang\n\"\"\").show()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 4,
+   "num": 14,
+   "title": "Pandas UDF vector hóa trao đổi dữ liệu qua Apache Arrow.",
+   "code": "import pandas as pd\nfrom pyspark.sql.functions import pandas_udf\n\n@pandas_udf(\"double\")\ndef gia_sau_chiet_khau(thanh_tien: pd.Series) -> pd.Series:\n    # Xu ly vector hoa tren tung lo du lieu, khong lap tung hang\n    return thanh_tien * 0.95\n\ndf2.withColumn(\"sau_chiet_khau\",\n               gia_sau_chiet_khau(\"thanh_tien\")).show()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 4,
+   "num": 15,
+   "title": "Thay thế UDF bằng hàm dựng sẵn when/otherwise.",
+   "code": "df2.withColumn(\n    \"loai_don\",\n    F.when(F.col(\"thanh_tien\").isNull(), \"Khong xac dinh\")\n     .when(F.col(\"thanh_tien\") >= 1000, \"Don lon\")\n     .otherwise(\"Don thuong\")).show()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 1,
+   "title": "Thống kê mô tả với describe và summary.",
+   "code": "# Doc du lieu khach hang tu HDFS\ndf = spark.read.parquet(\"data/khach_hang\")\nprint(\"So dong:\", df.count(), \"- So cot:\", len(df.columns))\ndf.printSchema()\n\n# Nam thong ke co ban cho cac cot so\ndf.describe(\"tuoi\", \"thu_nhap\", \"chi_tieu\").show()\n\n# summary cho phep chi dinh them cac phan vi\ndf.select(\"tuoi\", \"thu_nhap\") \\\n  .summary(\"count\", \"mean\", \"stddev\", \"min\",\n           \"25%\", \"50%\", \"75%\", \"max\") \\\n  .show()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 2,
+   "title": "Đếm số giá trị null trên từng cột trong một lần quét.",
+   "code": "from pyspark.sql import functions as F\n\n# Dem so gia tri null cua moi cot (mot job duy nhat)\nnull_counts = df.select([\n    F.count(F.when(F.col(c).isNull(), c)).alias(c)\n    for c in df.columns\n])\nnull_counts.show()\n\n# Tinh ty le null theo cot de quyet dinh chien luoc xu ly\ntong_so_dong = df.count()\nty_le_null = df.select([\n    (F.count(F.when(F.col(c).isNull(), c)) / tong_so_dong).alias(c)\n    for c in df.columns\n])\nty_le_null.show()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 3,
+   "title": "Phân phối tần suất, phân vị xấp xỉ và tương quan.",
+   "code": "# Phan phoi tan suat cua bien dinh danh\ndf.groupBy(\"thanh_pho\").count() \\\n  .orderBy(F.desc(\"count\")) \\\n  .show(10)\n\n# Phan vi xap xi voi sai so tuong doi 0.01\nq1, q2, q3 = df.approxQuantile(\"thu_nhap\",\n                               [0.25, 0.5, 0.75], 0.01)\nprint(\"Tu phan vi thu nhat:\", q1)\nprint(\"Trung vi xap xi   :\", q2)\nprint(\"Tu phan vi thu ba :\", q3)\n\n# He so tuong quan Pearson giua hai bien so\nr = df.stat.corr(\"thu_nhap\", \"chi_tieu\")\nprint(\"Tuong quan thu nhap - chi tieu:\", r)",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 4,
+   "title": "Lấy mẫu và chuyển sang pandas để trực quan hóa.",
+   "code": "# Lay mau ngau nhien 1 phan tram, khong hoan lai, seed co dinh\nmau = df.sample(withReplacement=False, fraction=0.01, seed=42)\nprint(\"Kich thuoc mau:\", mau.count())  # kiem tra truoc khi keo ve\n\npdf = mau.select(\"tuoi\", \"thu_nhap\", \"chi_tieu\").toPandas()\n\nimport matplotlib.pyplot as plt\npdf[\"thu_nhap\"].hist(bins=50)\nplt.xlabel(\"Thu nhap\")\nplt.ylabel(\"Tan suat\")\nplt.savefig(\"phan_phoi_thu_nhap.png\")",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 5,
+   "title": "Phát hiện lệch phân phối và biến đổi logarit.",
+   "code": "# He so lech va do nhon cua bien thu nhap\ndf.select(F.skewness(\"thu_nhap\").alias(\"do_lech\"),\n          F.kurtosis(\"thu_nhap\").alias(\"do_nhon\")).show()\n\n# So sanh trung binh voi trung vi xap xi\ntb = df.agg(F.mean(\"thu_nhap\")).first()[0]\ntv = df.approxQuantile(\"thu_nhap\", [0.5], 0.01)[0]\nprint(\"Trung binh:\", tb, \"- Trung vi:\", tv)\n\n# Bien doi logarit lam giam do lech phai\ndf = df.withColumn(\"log_thu_nhap\", F.log1p(F.col(\"thu_nhap\")))",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 6,
+   "title": "Xóa dòng thiếu với dropna: how, thresh và subset.",
+   "code": "# Xoa dong co bat ky gia tri null nao (mac dinh how=\"any\")\ndf_a = df.dropna(how=\"any\")\n\n# Chi xoa khi TAT CA cac cot deu null\ndf_b = df.dropna(how=\"all\")\n\n# Giu lai dong co it nhat 5 gia tri khac null\ndf_c = df.dropna(thresh=5)\n\n# Chi xet null tren cac cot quan trong doi voi bai toan\ndf_d = df.dropna(subset=[\"thu_nhap\", \"tuoi\"])\n\nprint(\"Truoc:\", df.count(), \"- Sau khi loc:\", df_d.count())",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 7,
+   "title": "Điền khuyết bằng fillna và Imputer với trung vị.",
+   "code": "# Dien hang so an dinh rieng cho tung cot\ndf_dien = df.fillna({\"thu_nhap\": 0.0,\n                     \"so_don_hang\": 0,\n                     \"thanh_pho\": \"khong_ro\"})\n\n# Imputer: hoc trung vi tren tap huan luyen roi ap dung lai\nfrom pyspark.ml.feature import Imputer\n\nimputer = Imputer(\n    inputCols=[\"tuoi\", \"thu_nhap\"],\n    outputCols=[\"tuoi_imp\", \"thu_nhap_imp\"],\n    strategy=\"median\"          # hoac \"mean\", \"mode\"\n)\nmodel_imp = imputer.fit(df)    # hoc gia tri dien\ndf_imp = model_imp.transform(df)\nmodel_imp.surrogateDF.show()   # xem gia tri da hoc",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 8,
+   "title": "Lọc ngoại lai theo quy tắc IQR với approxQuantile.",
+   "code": "# Tinh Q1, Q3 xap xi va suy ra hai nguong loc\nq1, q3 = df.approxQuantile(\"thu_nhap\", [0.25, 0.75], 0.01)\niqr = q3 - q1\ncan_duoi = q1 - 1.5 * iqr\ncan_tren = q3 + 1.5 * iqr\n\ndf_loc = df.filter(\n    (F.col(\"thu_nhap\") >= can_duoi) &\n    (F.col(\"thu_nhap\") <= can_tren)\n)\nso_ngoai_lai = df.count() - df_loc.count()\nprint(\"So quan sat bi loai:\", so_ngoai_lai)",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 9,
+   "title": "Winsorize giá trị vượt ngưỡng bằng when/otherwise.",
+   "code": "df_wins = df.withColumn(\n    \"thu_nhap_w\",\n    F.when(F.col(\"thu_nhap\") > can_tren, can_tren)\n     .when(F.col(\"thu_nhap\") < can_duoi, can_duoi)\n     .otherwise(F.col(\"thu_nhap\"))\n)\ndf_wins.select(\"thu_nhap\", \"thu_nhap_w\").describe().show()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 10,
+   "title": "StringIndexer và IndexToString trên cột nghề nghiệp.",
+   "code": "from pyspark.ml.feature import StringIndexer, IndexToString\n\nindexer = StringIndexer(\n    inputCol=\"nghe_nghiep\",\n    outputCol=\"nghe_nghiep_idx\",\n    handleInvalid=\"keep\"   # nhan la duoc gom vao chi so cuoi\n)\nmodel_idx = indexer.fit(df_train)      # hoc bang tan suat\ndf_idx = model_idx.transform(df_train)\n\n# Danh sach nhan theo thu tu tan suat giam dan\nprint(model_idx.labelsArray[0])\n# vi du: ['nhan_vien', 'ky_su', 'giao_vien', 'bac_si', ...]\n\n# Chuyen nguoc chi so ve nhan goc khi dien giai ket qua\ninverter = IndexToString(\n    inputCol=\"nghe_nghiep_idx\",\n    outputCol=\"nghe_nghiep_goc\",\n    labels=model_idx.labelsArray[0]\n)\ndf_goc = inverter.transform(df_idx)",
+   "prep": "# Chuan bi: tap huan luyen/kiem tra tu du lieu da dien gia tri thieu (Doan ma 5.7)\ndf_train, df_test = df_imp.randomSplit([0.8, 0.2], seed=42)\nprint(\"train:\", df_train.count(), \"- test:\", df_test.count())",
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 11,
+   "title": "OneHotEncoder cho hai cột nghề nghiệp và thành phố.",
+   "code": "from pyspark.ml.feature import OneHotEncoder\n\n# Gia su thanh_pho da duoc StringIndexer hoa thanh thanh_pho_idx\nencoder = OneHotEncoder(\n    inputCols=[\"nghe_nghiep_idx\", \"thanh_pho_idx\"],\n    outputCols=[\"nghe_nghiep_vec\", \"thanh_pho_vec\"],\n    dropLast=True\n)\nmodel_ohe = encoder.fit(df_idx)\ndf_ohe = model_ohe.transform(df_idx)\n\ndf_ohe.select(\"nghe_nghiep\", \"nghe_nghiep_idx\",\n              \"nghe_nghiep_vec\").show(5, truncate=False)\n# vi du ket qua: ky_su | 1.0 | (4,[1],[1.0])",
+   "prep": "# Chuan bi: chi so hoa them cot thanh_pho de co thanh_pho_idx\nfrom pyspark.ml.feature import StringIndexer\ndf_idx = (StringIndexer(inputCol=\"thanh_pho\", outputCol=\"thanh_pho_idx\", handleInvalid=\"keep\")\n          .fit(df_idx).transform(df_idx))",
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 12,
+   "title": "VectorAssembler gom các cột thành vector features.",
+   "code": "from pyspark.ml.feature import VectorAssembler\n\nassembler = VectorAssembler(\n    inputCols=[\"tuoi\", \"thu_nhap\", \"chi_tieu\",\n               \"nghe_nghiep_vec\", \"thanh_pho_vec\"],\n    outputCol=\"features_raw\",\n    handleInvalid=\"skip\"\n)\ndf_vec = assembler.transform(df_ohe)\ndf_vec.select(\"features_raw\").show(3, truncate=False)",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 13,
+   "title": "Chuỗi assembler và scaler, fit trên train rồi transform test.",
+   "code": "from pyspark.ml.feature import StandardScaler\n\n# Chia du lieu TRUOC khi hoc bat ky tham so nao\ntrain, test = df_vec.randomSplit([0.8, 0.2], seed=42)\n\nscaler = StandardScaler(\n    inputCol=\"features_raw\",\n    outputCol=\"features\",\n    withMean=True,   # tru trung binh (can vector day du)\n    withStd=True     # chia do lech chuan\n)\nscaler_model = scaler.fit(train)        # hoc mu, sigma tren TRAIN\ntrain_scaled = scaler_model.transform(train)\ntest_scaled = scaler_model.transform(test)  # ap dung nguyen ven",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 14,
+   "title": "MinMaxScaler và RobustScaler trên cùng cột vector.",
+   "code": "from pyspark.ml.feature import MinMaxScaler, RobustScaler\n\n# Co gian tuyen tinh ve doan [0, 1]\nmm = MinMaxScaler(inputCol=\"features_raw\",\n                  outputCol=\"features_mm\")\ntrain_mm = mm.fit(train).transform(train)\n\n# Chuan hoa ben vung theo trung vi va khoang tu phan vi\nrb = RobustScaler(inputCol=\"features_raw\",\n                  outputCol=\"features_rb\",\n                  withCentering=True, withScaling=True)\ntrain_rb = rb.fit(train).transform(train)",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 15,
+   "title": "Pipeline hoàn chỉnh: StringIndexer, OneHotEncoder, VectorAssembler, StandardScaler.",
+   "code": "from pyspark.ml import Pipeline\nfrom pyspark.ml.feature import (StringIndexer, OneHotEncoder,\n                                VectorAssembler, StandardScaler)\n\nidx_nghe = StringIndexer(inputCol=\"nghe_nghiep\",\n                         outputCol=\"nghe_idx\",\n                         handleInvalid=\"keep\")\nidx_tp = StringIndexer(inputCol=\"thanh_pho\",\n                       outputCol=\"tp_idx\",\n                       handleInvalid=\"keep\")\nohe = OneHotEncoder(inputCols=[\"nghe_idx\", \"tp_idx\"],\n                    outputCols=[\"nghe_vec\", \"tp_vec\"])\nassembler = VectorAssembler(\n    inputCols=[\"tuoi\", \"thu_nhap\", \"chi_tieu\",\n               \"nghe_vec\", \"tp_vec\"],\n    outputCol=\"features_raw\")\nscaler = StandardScaler(inputCol=\"features_raw\",\n                        outputCol=\"features\",\n                        withMean=True, withStd=True)\n\npipeline = Pipeline(stages=[idx_nghe, idx_tp, ohe,\n                            assembler, scaler])\n\ntrain, test = df.randomSplit([0.8, 0.2], seed=42)\npipe_model = pipeline.fit(train)   # moi Estimator hoc tren train\ntrain_ready = pipe_model.transform(train)\ntest_ready = pipe_model.transform(test)\ntrain_ready.select(\"features\").show(3, truncate=False)",
+   "prep": "# Chuan bi: dung cac cot da dien gia tri thieu (5.7) lam dau vao cho Pipeline\ndf = (df_imp.drop(\"tuoi\", \"thu_nhap\")\n      .withColumnRenamed(\"tuoi_imp\", \"tuoi\").withColumnRenamed(\"thu_nhap_imp\", \"thu_nhap\")\n      .dropna(subset=[\"chi_tieu\"]))",
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 16,
+   "title": "Lưu và nạp lại PipelineModel.",
+   "code": "# Luu pipeline da huan luyen xuong HDFS\nduong_dan = \"models/pipeline_tien_xu_ly\"\npipe_model.write().overwrite().save(duong_dan)\n\n# Nap lai o phien lam viec khac (moi truong trien khai)\nfrom pyspark.ml import PipelineModel\npipe_model_2 = PipelineModel.load(duong_dan)\n# du_lieu_moi: DataFrame moi, cung luoc do voi du lieu huan luyen\ndu_lieu_moi_ready = pipe_model_2.transform(du_lieu_moi)",
+   "prep": "# Chuan bi: du lieu moi cung luoc do voi du lieu huan luyen (lay tap test cua Doan ma 5.15)\ndu_lieu_moi = test",
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 17,
+   "title": "Khung winsorize cho cột thu nhập.",
+   "code": "q1, q3 = df.approxQuantile(\"thu_nhap\", [0.25, 0.75], 0.01)\niqr = q3 - q1\ncan_duoi, can_tren = q1 - 1.5 * iqr, q3 + 1.5 * iqr\nso_ngoai_lai = df.filter((F.col(\"thu_nhap\") < can_duoi) |\n                         (F.col(\"thu_nhap\") > can_tren)).count()\ndf_w = df.withColumn(\n    \"thu_nhap_w\",\n    F.when(F.col(\"thu_nhap\") > can_tren, can_tren)\n     .when(F.col(\"thu_nhap\") < can_duoi, can_duoi)\n     .otherwise(F.col(\"thu_nhap\")))",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 18,
+   "title": "Khung pipeline tiền xử lý cho bài toán churn.",
+   "code": "from pyspark.ml import Pipeline, PipelineModel\nfrom pyspark.ml.feature import (Imputer, StringIndexer,\n    OneHotEncoder, VectorAssembler, StandardScaler)\n\ndf = spark.read.csv(\"data/churn.csv\",\n                    header=True, inferSchema=True)\ntrain, test = df.randomSplit([0.8, 0.2], seed=42)\n\nimp = Imputer(inputCols=[\"tuoi\", \"cuoc_hang_thang\"],\n              outputCols=[\"tuoi_imp\", \"cuoc_imp\"],\n              strategy=\"median\")\nidx = StringIndexer(inputCols=[\"goi_cuoc\", \"khu_vuc\"],\n                    outputCols=[\"goi_idx\", \"kv_idx\"],\n                    handleInvalid=\"keep\")\nohe = OneHotEncoder(inputCols=[\"goi_idx\", \"kv_idx\"],\n                    outputCols=[\"goi_vec\", \"kv_vec\"])\nasm = VectorAssembler(\n    inputCols=[\"tuoi_imp\", \"so_thang_su_dung\", \"cuoc_imp\",\n               \"so_lan_goi_ho_tro\", \"goi_vec\", \"kv_vec\"],\n    outputCol=\"features_raw\", handleInvalid=\"skip\")\nscl = StandardScaler(inputCol=\"features_raw\", outputCol=\"features\",\n                     withMean=True, withStd=True)\n\npipe = Pipeline(stages=[imp, idx, ohe, asm, scl])\nmodel = pipe.fit(train)              # chi hoc tren train\ntrain_ready = model.transform(train)\ntest_ready = model.transform(test)\nmodel.write().overwrite().save(\"models/pipe_churn\")\nmodel2 = PipelineModel.load(\"models/pipe_churn\")",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 5,
+   "num": 19,
+   "title": "Đoạn mã chuẩn hóa có một lỗi phương pháp nghiêm trọng.",
+   "code": "scaler_model = scaler.fit(df_vec)  # hoc tren TOAN BO du lieu\ndf_scaled = scaler_model.transform(df_vec)\ntrain, test = df_scaled.randomSplit([0.8, 0.2], seed=42)",
+   "prep": null,
+   "skip": "ví dụ về LỖI phương pháp (fit scaler trên toàn bộ dữ liệu) – không nên chạy theo"
+  },
+  {
+   "ch": 6,
+   "num": 1,
+   "title": "Khởi tạo phiên làm việc và chia dữ liệu huấn luyện/kiểm tra.",
+   "code": "from pyspark.sql import SparkSession\n\nspark = SparkSession.builder \\\n    .appName(\"Chuong6-MLlib\") \\\n    .getOrCreate()\n\n# Doc du lieu khach hang vien thong tu HDFS\ndf = spark.read.parquet(\"data/churn.parquet\")\n\n# Chia ngau nhien: 80% huan luyen, 20% kiem tra\ntrain_df, test_df = df.randomSplit([0.8, 0.2], seed=42)\n\nprint(\"So ban ghi huan luyen:\", train_df.count())\nprint(\"So ban ghi kiem tra :\", test_df.count())",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 6,
+   "num": 2,
+   "title": "Huấn luyện hồi quy logistic dự đoán khách hàng rời bỏ.",
+   "code": "from pyspark.ml.feature import VectorAssembler\nfrom pyspark.ml.classification import LogisticRegression\n\n# Ghep cac cot dac trung thanh mot vector duy nhat\nfeature_cols = [\"tuoi\", \"so_thang_su_dung\",\n                \"cuoc_hang_thang\", \"so_lan_goi_ho_tro\"]\nassembler = VectorAssembler(inputCols=feature_cols,\n                            outputCol=\"features\")\ntrain_vec = assembler.transform(train_df)\ntest_vec = assembler.transform(test_df)\n\n# Khai bao Estimator voi cac sieu tham so co ban\nlr = LogisticRegression(featuresCol=\"features\", labelCol=\"label\",\n                        maxIter=100, regParam=0.01,\n                        elasticNetParam=0.0)\n\n# Huan luyen: fit() tra ve mot Transformer (mo hinh)\nlr_model = lr.fit(train_vec)\n\n# Doc he so hoc duoc cua mo hinh\nprint(\"He so (coefficients):\", lr_model.coefficients)\nprint(\"He so chan (intercept):\", lr_model.intercept)\n\n# Du doan tren tap kiem tra\npred_lr = lr_model.transform(test_vec)\npred_lr.select(\"label\", \"prediction\", \"probability\").show(5)",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 6,
+   "num": 3,
+   "title": "Huấn luyện cây quyết định và in cấu trúc luật.",
+   "code": "from pyspark.ml.classification import DecisionTreeClassifier\n\ndt = DecisionTreeClassifier(featuresCol=\"features\",\n                            labelCol=\"label\",\n                            impurity=\"gini\",\n                            maxDepth=5,\n                            minInstancesPerNode=20,\n                            seed=42)\ndt_model = dt.fit(train_vec)\n\n# In cau truc cay: tap luat neu-thi doc duoc truc tiep\nprint(dt_model.toDebugString)\n\npred_dt = dt_model.transform(test_vec)\npred_dt.select(\"label\", \"prediction\").show(5)",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 6,
+   "num": 4,
+   "title": "Huấn luyện rừng ngẫu nhiên và xem độ quan trọng đặc trưng.",
+   "code": "from pyspark.ml.classification import RandomForestClassifier\n\nrf = RandomForestClassifier(featuresCol=\"features\",\n                            labelCol=\"label\",\n                            numTrees=100,\n                            maxDepth=8,\n                            featureSubsetStrategy=\"sqrt\",\n                            seed=42)\nrf_model = rf.fit(train_vec)\n\n# Do quan trong cua tung dac trung (tong bang 1)\nimportances = rf_model.featureImportances.toArray()\nfor name, score in zip(feature_cols, importances):\n    print(name, \"->\", round(float(score), 4))\n\npred_rf = rf_model.transform(test_vec)",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 6,
+   "num": 5,
+   "title": "Hồi quy tuyến tính dự đoán giá nhà và đánh giá bằng RegressionEvaluator.",
+   "code": "from pyspark.ml.feature import VectorAssembler\nfrom pyspark.ml.regression import LinearRegression\nfrom pyspark.ml.evaluation import RegressionEvaluator\n\nhouse_df = spark.read.parquet(\"data/house_prices.parquet\")\ntrain_h, test_h = house_df.randomSplit([0.8, 0.2], seed=42)\n\nhouse_cols = [\"dien_tich\", \"so_phong_ngu\", \"so_phong_tam\",\n              \"khoang_cach_trung_tam\", \"tuoi_nha\"]\nassembler_h = VectorAssembler(inputCols=house_cols,\n                              outputCol=\"features\")\ntrain_hv = assembler_h.transform(train_h)\ntest_hv = assembler_h.transform(test_h)\n\nlin = LinearRegression(featuresCol=\"features\", labelCol=\"gia_nha\",\n                       maxIter=100, regParam=0.1,\n                       elasticNetParam=0.5)\nlin_model = lin.fit(train_hv)\n\n# Doc tham so hoc duoc: moi he so ung voi mot dac trung\nprint(\"Coefficients:\", lin_model.coefficients)\nprint(\"Intercept   :\", lin_model.intercept)\n\n# Danh gia tren tap kiem tra voi RMSE va R2\npred_h = lin_model.transform(test_hv)\nevaluator = RegressionEvaluator(labelCol=\"gia_nha\",\n                                predictionCol=\"prediction\",\n                                metricName=\"rmse\")\nprint(\"RMSE:\", evaluator.evaluate(pred_h))\nprint(\"R2  :\", evaluator.setMetricName(\"r2\").evaluate(pred_h))",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 6,
+   "num": 6,
+   "title": "Hồi quy GBT dự đoán giá nhà và so sánh với hồi quy tuyến tính.",
+   "code": "from pyspark.ml.regression import GBTRegressor\n\ngbt = GBTRegressor(featuresCol=\"features\", labelCol=\"gia_nha\",\n                   maxIter=100, maxDepth=5, stepSize=0.1,\n                   seed=42)\ngbt_model = gbt.fit(train_hv)\n\npred_gbt = gbt_model.transform(test_hv)\nrmse_eval = RegressionEvaluator(labelCol=\"gia_nha\",\n                                predictionCol=\"prediction\",\n                                metricName=\"rmse\")\nprint(\"RMSE cua GBT:\", rmse_eval.evaluate(pred_gbt))\n\n# GBT cung cung cap do quan trong dac trung nhu rung ngau nhien\nprint(gbt_model.featureImportances)",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 6,
+   "num": 7,
+   "title": "Đánh giá và so sánh các mô hình phân loại churn.",
+   "code": "from pyspark.ml.evaluation import BinaryClassificationEvaluator\nfrom pyspark.ml.evaluation import MulticlassClassificationEvaluator\n\n# So sanh AUC-ROC cua ba mo hinh phan loai da huan luyen\nauc_eval = BinaryClassificationEvaluator(\n    labelCol=\"label\", rawPredictionCol=\"rawPrediction\",\n    metricName=\"areaUnderROC\")\nprint(\"AUC Logistic     :\", auc_eval.evaluate(pred_lr))\nprint(\"AUC Decision Tree:\", auc_eval.evaluate(pred_dt))\nprint(\"AUC Random Forest:\", auc_eval.evaluate(pred_rf))\n\n# Cac do do da lop tren mo hinh rung ngau nhien\nmc_eval = MulticlassClassificationEvaluator(\n    labelCol=\"label\", predictionCol=\"prediction\")\nfor m in [\"accuracy\", \"f1\", \"weightedPrecision\", \"weightedRecall\"]:\n    v = mc_eval.setMetricName(m).evaluate(pred_rf)\n    print(m, \"=\", round(v, 4))\n\n# Tu xay ma tran nham lan bang phep gom nhom DataFrame\npred_rf.groupBy(\"label\", \"prediction\").count().show()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 6,
+   "num": 8,
+   "title": "Quy trình tinh chỉnh hoàn chỉnh với Pipeline, ParamGridBuilder và CrossValidator.",
+   "code": "from pyspark.ml import Pipeline\nfrom pyspark.ml.feature import VectorAssembler\nfrom pyspark.ml.classification import RandomForestClassifier\nfrom pyspark.ml.evaluation import BinaryClassificationEvaluator\nfrom pyspark.ml.tuning import ParamGridBuilder, CrossValidator\n\n# Buoc 1: dong goi tien xu ly va thuat toan vao Pipeline\nassembler = VectorAssembler(inputCols=feature_cols,\n                            outputCol=\"features\")\nrf = RandomForestClassifier(featuresCol=\"features\",\n                            labelCol=\"label\", seed=42)\npipeline = Pipeline(stages=[assembler, rf])\n\n# Buoc 2: xay luoi tham so (3 x 3 = 9 to hop)\ngrid = ParamGridBuilder() \\\n    .addGrid(rf.numTrees, [50, 100, 200]) \\\n    .addGrid(rf.maxDepth, [5, 8, 12]) \\\n    .build()\n\n# Buoc 3: khai bao bo danh gia va CrossValidator\nevaluator = BinaryClassificationEvaluator(\n    labelCol=\"label\", metricName=\"areaUnderROC\")\ncv = CrossValidator(estimator=pipeline,\n                    estimatorParamMaps=grid,\n                    evaluator=evaluator,\n                    numFolds=5,\n                    parallelism=4,\n                    seed=42)\n\n# Buoc 4: huan luyen 9 x 5 = 45 mo hinh tren tap huan luyen\ncv_model = cv.fit(train_df)\n\n# Buoc 5: trich xuat mo hinh va tham so tot nhat\nbest_rf = cv_model.bestModel.stages[-1]\nprint(\"numTrees tot nhat:\", best_rf.getNumTrees)\nprint(\"maxDepth tot nhat:\", best_rf.getMaxDepth())\nprint(\"AUC trung binh tot nhat:\", max(cv_model.avgMetrics))\n\n# Buoc 6: danh gia lan cuoi tren tap kiem tra doc lap\npred_best = cv_model.transform(test_df)\nprint(\"AUC tren tap kiem tra:\", evaluator.evaluate(pred_best))",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 6,
+   "num": 9,
+   "title": "Quy trình hoàn chỉnh dự đoán khách hàng rời bỏ: từ dữ liệu thô tới mô hình lưu trữ và dự đoán theo lô.",
+   "code": "from pyspark.sql import SparkSession, functions as F\nfrom pyspark.ml import Pipeline, PipelineModel\nfrom pyspark.ml.feature import (Imputer, StringIndexer,\n                                OneHotEncoder, VectorAssembler,\n                                StandardScaler)\nfrom pyspark.ml.classification import RandomForestClassifier\nfrom pyspark.ml.evaluation import BinaryClassificationEvaluator\nfrom pyspark.ml.tuning import (ParamGridBuilder,\n                               TrainValidationSplit)\n\nspark = (SparkSession.builder.appName(\"Churn-EndToEnd\")\n         .getOrCreate())\n\n# Buoc 1-2: nap du lieu voi luoc do tuong minh, khao sat nhanh\nluoc_do = (\"ma_kh STRING, tuoi DOUBLE, goi_cuoc STRING, \"\n           \"khu_vuc STRING, so_thang_su_dung DOUBLE, \"\n           \"cuoc_hang_thang DOUBLE, tong_cuoc DOUBLE, \"\n           \"so_lan_goi_ho_tro DOUBLE, label DOUBLE\")\ndf = (spark.read.option(\"header\", True).schema(luoc_do)\n      .csv(\"data/churn.csv\"))\ndf.groupBy(\"label\").count().show()          # ty le lop\ndf.select([F.mean(F.col(c).isNull().cast(\"int\")).alias(c)\n           for c in df.columns]).show()     # ty le thieu tung cot\n\n# Buoc 3: lam sach toi thieu va chia du lieu TRUOC khi hoc tham so\ndf = df.dropna(subset=[\"label\", \"goi_cuoc\", \"khu_vuc\"])\ntrain_df, test_df = df.randomSplit([0.8, 0.2], seed=42)\ntrain_df.cache()\n\n# Buoc 4: dac trung hoa - moi Estimator deu nam trong Pipeline\nso_cols = [\"tuoi\", \"so_thang_su_dung\", \"cuoc_hang_thang\",\n           \"tong_cuoc\", \"so_lan_goi_ho_tro\"]\nso_imp = [c + \"_imp\" for c in so_cols]\nimputer = Imputer(inputCols=so_cols, outputCols=so_imp,\n                  strategy=\"median\")\ndm_cols = [\"goi_cuoc\", \"khu_vuc\"]\nindexer = StringIndexer(inputCols=dm_cols, handleInvalid=\"keep\",\n                        outputCols=[c + \"_idx\" for c in dm_cols])\nencoder = OneHotEncoder(inputCols=[c + \"_idx\" for c in dm_cols],\n                        outputCols=[c + \"_vec\" for c in dm_cols],\n                        handleInvalid=\"keep\")\nassembler = VectorAssembler(\n    inputCols=so_imp + [c + \"_vec\" for c in dm_cols],\n    outputCol=\"features_raw\")\nscaler = StandardScaler(inputCol=\"features_raw\",\n                        outputCol=\"features\")\n\n# Buoc 5: mo hinh co so\nrf = RandomForestClassifier(featuresCol=\"features\",\n                            labelCol=\"label\", seed=42)\npipeline = Pipeline(stages=[imputer, indexer, encoder,\n                            assembler, scaler, rf])\n\n# Buoc 6: tinh chinh tiet kiem chi phi bang TrainValidationSplit\ngrid = (ParamGridBuilder()\n        .addGrid(rf.numTrees, [100, 200])\n        .addGrid(rf.maxDepth, [6, 10])\n        .build())\nevaluator = BinaryClassificationEvaluator(\n    labelCol=\"label\", metricName=\"areaUnderROC\")\ntvs = TrainValidationSplit(estimator=pipeline,\n                           estimatorParamMaps=grid,\n                           evaluator=evaluator, trainRatio=0.8,\n                           parallelism=2, seed=42)\nbest_model = tvs.fit(train_df).bestModel    # la mot PipelineModel\n\n# Buoc 7: danh gia lan cuoi tren tap kiem tra va dien giai\npred = best_model.transform(test_df)\nprint(\"AUC kiem tra:\", round(evaluator.evaluate(pred), 4))\npred.groupBy(\"khu_vuc\", \"label\", \"prediction\").count().show()\nrf_model = best_model.stages[-1]\nprint(\"Do quan trong dac trung:\", rf_model.featureImportances)\n\n# Buoc 8: luu mo hinh, nap lai va du doan theo lo tren du lieu moi\nbest_model.write().overwrite().save(\"models/churn_rf\")\nmodel_moi = PipelineModel.load(\"models/churn_rf\")\nkh_moi = (spark.read.option(\"header\", True).schema(luoc_do)\n          .csv(\"data/churn_moi.csv\"))\n(model_moi.transform(kh_moi)\n .select(\"ma_kh\", \"prediction\", \"probability\")\n .write.mode(\"overwrite\").parquet(\"output/du_doan_churn\"))",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 7,
+   "num": 1,
+   "title": "Khảo sát WSSSE và hệ số silhouette theo số cụm K.",
+   "code": "from pyspark.ml.clustering import KMeans\nfrom pyspark.ml.evaluation import ClusteringEvaluator\n\nevaluator = ClusteringEvaluator(metricName=\"silhouette\",\n                                distanceMeasure=\"squaredEuclidean\")\n\nfor k in range(2, 11):\n    kmeans = KMeans(featuresCol=\"features\", k=k, seed=42)\n    model = kmeans.fit(df_features)\n    du_doan = model.transform(df_features)\n    wssse = model.summary.trainingCost  # ham muc tieu WSSSE\n    sil = evaluator.evaluate(du_doan)   # silhouette trung binh\n    print(\"k = %d | WSSSE = %.1f | silhouette = %.3f\"\n          % (k, wssse, sil))",
+   "prep": "from pyspark.ml.feature import VectorAssembler, StandardScaler\ndf_kh = spark.read.csv(\"data/khach_hang.csv\", header=True, inferSchema=True)\nasm = VectorAssembler(inputCols=[\"thu_nhap\", \"diem_chi_tieu\", \"so_don_hang\"], outputCol=\"features_raw\")\nsc_model = StandardScaler(inputCol=\"features_raw\", outputCol=\"features\", withMean=True, withStd=True).fit(asm.transform(df_kh))\ndf_features = sc_model.transform(asm.transform(df_kh)).select(\"ma_kh\", \"features\").cache()\nprint(df_features.count(), \"khach hang\")",
+   "skip": null
+  },
+  {
+   "ch": 7,
+   "num": 2,
+   "title": "Quy trình phân cụm khách hàng hoàn chỉnh với Pipeline.",
+   "code": "from pyspark.sql import SparkSession\nfrom pyspark.ml import Pipeline\nfrom pyspark.ml.feature import VectorAssembler, StandardScaler\nfrom pyspark.ml.clustering import KMeans\nfrom pyspark.ml.evaluation import ClusteringEvaluator\n\nspark = (SparkSession.builder.appName(\"PhanCumKhachHang\")\n         .getOrCreate())\n\n# Cot du lieu: ma_kh, thu_nhap, diem_chi_tieu, so_don_hang\ndf = spark.read.csv(\"data/khach_hang.csv\",\n                    header=True, inferSchema=True)\n\nassembler = VectorAssembler(\n    inputCols=[\"thu_nhap\", \"diem_chi_tieu\", \"so_don_hang\"],\n    outputCol=\"features_raw\")\nscaler = StandardScaler(inputCol=\"features_raw\",\n                        outputCol=\"features\",\n                        withMean=True, withStd=True)\nkmeans = KMeans(featuresCol=\"features\", predictionCol=\"prediction\",\n                k=3, initMode=\"k-means||\", maxIter=50, seed=42)\n\npipeline = Pipeline(stages=[assembler, scaler, kmeans])\nmodel = pipeline.fit(df)\ndu_doan = model.transform(df)\n\nevaluator = ClusteringEvaluator(metricName=\"silhouette\")\nprint(\"Silhouette =\", evaluator.evaluate(du_doan))\n\n# Dem so khach hang cua tung cum\ndu_doan.groupBy(\"prediction\").count().orderBy(\"prediction\").show()",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 7,
+   "num": 3,
+   "title": "Khai phá tập mục phổ biến và luật kết hợp bằng FPGrowth.",
+   "code": "from pyspark.ml.fpm import FPGrowth\n\ngiao_dich = spark.createDataFrame([\n    (1, [\"banh mi\", \"sua\", \"trung\"]),\n    (2, [\"banh mi\", \"sua\"]),\n    (3, [\"trung\", \"ca phe\"]),\n    (4, [\"banh mi\", \"sua\", \"ca phe\"]),\n    (5, [\"ca phe\", \"trung\"]),\n    (6, [\"banh mi\", \"trung\"]),\n], [\"ma_gd\", \"items\"])\n\nfp = FPGrowth(itemsCol=\"items\", minSupport=0.3, minConfidence=0.6)\nfp_model = fp.fit(giao_dich)\n\n# 1) Cac tap muc pho bien va tan suat xuat hien\ntap_pho_bien = fp_model.freqItemsets\ntap_pho_bien.orderBy(\"freq\", ascending=False).show(truncate=False)\n\n# 2) Cac luat ket hop kem confidence, lift, support\nluat = fp_model.associationRules\nluat.orderBy(\"lift\", ascending=False).show(truncate=False)\n\n# 3) Ap luat len tung gio hang de goi y mat hang mua kem\nfp_model.transform(giao_dich).show(truncate=False)",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 7,
+   "num": 4,
+   "title": "Huấn luyện ALS trên MovieLens và sinh gợi ý.",
+   "code": "from pyspark.ml.recommendation import ALS\nfrom pyspark.ml.evaluation import RegressionEvaluator\n\nratings = spark.read.csv(\"data/movielens/ratings.csv\",\n                         header=True, inferSchema=True) \\\n                .select(\"userId\", \"movieId\", \"rating\")\n\ntrain, test = ratings.randomSplit([0.8, 0.2], seed=42)\n\nals = ALS(userCol=\"userId\", itemCol=\"movieId\", ratingCol=\"rating\",\n          rank=10, regParam=0.1, maxIter=15,\n          implicitPrefs=False, coldStartStrategy=\"drop\", seed=42)\nals_model = als.fit(train)\n\n# Danh gia RMSE tren tap kiem tra\ndu_doan = als_model.transform(test)\nevaluator = RegressionEvaluator(metricName=\"rmse\",\n                                labelCol=\"rating\",\n                                predictionCol=\"prediction\")\nprint(\"RMSE =\", evaluator.evaluate(du_doan))\n\n# Goi y 10 phim tot nhat cho moi nguoi dung\ngoi_y_user = als_model.recommendForAllUsers(10)\ngoi_y_user.show(5, truncate=False)\n\n# Goi y 10 nguoi dung tiem nang nhat cho moi phim\ngoi_y_phim = als_model.recommendForAllItems(10)",
+   "prep": "import os, urllib.request, zipfile\nif not os.path.exists(\"data/movielens/ratings.csv\"):\n    urllib.request.urlretrieve(\"https://files.grouplens.org/datasets/movielens/ml-latest-small.zip\", \"ml-latest-small.zip\")\n    with zipfile.ZipFile(\"ml-latest-small.zip\") as z:\n        z.extract(\"ml-latest-small/ratings.csv\", \".\")\n    os.makedirs(\"data/movielens\", exist_ok=True)\n    os.replace(\"ml-latest-small/ratings.csv\", \"data/movielens/ratings.csv\")\nprint(\"ratings.csv san sang\")",
+   "skip": null
+  },
+  {
+   "ch": 7,
+   "num": 5,
+   "title": "Khung tính bảng RFM và vòng lặp chọn K.",
+   "code": "from pyspark.sql import functions as F\nfrom pyspark.ml.clustering import KMeans\nfrom pyspark.ml.evaluation import ClusteringEvaluator\n\nrfm = don_hang.groupBy(\"ma_kh\").agg(\n    F.datediff(F.lit(\"2026-07-01\"), F.max(\"ngay_dat\"))\n     .alias(\"recency\"),\n    F.count(\"*\").alias(\"frequency\"),\n    F.sum(\"gia_tri\").alias(\"monetary\"))\n\n# Sau khi co df_features (assembler + scaler), thu lan luot cac K\nevaluator = ClusteringEvaluator(metricName=\"silhouette\")\nfor k in range(2, 9):\n    model = KMeans(featuresCol=\"features\", k=k,\n                   seed=42).fit(df_features)\n    sil = evaluator.evaluate(model.transform(df_features))\n    print(k, model.summary.trainingCost, sil)",
+   "prep": "# Chuan bi: don_hang tu data/don_hang.csv; df_features = bang RFM da chuan hoa (assembler + scaler)\nfrom pyspark.ml.feature import VectorAssembler, StandardScaler\ndon_hang = spark.read.csv(\"data/don_hang.csv\", header=True, inferSchema=True)\n_rfm = don_hang.groupBy(\"ma_kh\").agg(\n    F.datediff(F.lit(\"2026-07-01\"), F.max(\"ngay_dat\")).alias(\"recency\"),\n    F.count(\"*\").alias(\"frequency\"), F.sum(\"gia_tri\").alias(\"monetary\"))\n_asm = VectorAssembler(inputCols=[\"recency\", \"frequency\", \"monetary\"], outputCol=\"features_raw\")\n_scaler = StandardScaler(inputCol=\"features_raw\", outputCol=\"features\", withMean=True, withStd=True)\ndf_features = _scaler.fit(_asm.transform(_rfm)).transform(_asm.transform(_rfm)).cache()\nprint(df_features.count(), \"khach hang trong bang RFM\")",
+   "skip": null
+  },
+  {
+   "ch": 7,
+   "num": 6,
+   "title": "Khung lời giải bài tập ALS.",
+   "code": "from pyspark.ml.recommendation import ALS\n\nratings = spark.createDataFrame([\n    (1, 101, 5.0), (1, 102, 4.5), (1, 103, 1.0), (1, 105, 4.0),\n    (2, 101, 4.5), (2, 102, 4.0), (2, 104, 1.5),\n    (3, 102, 1.0), (3, 103, 4.5), (3, 104, 5.0), (3, 105, 1.5),\n    (4, 101, 1.5), (4, 103, 4.0), (4, 104, 4.5),\n], [\"userId\", \"movieId\", \"rating\"])\n\nals = ALS(userCol=\"userId\", itemCol=\"movieId\", ratingCol=\"rating\",\n          rank=5, regParam=0.1, maxIter=10,\n          coldStartStrategy=\"drop\", seed=42)\nals_model = als.fit(ratings)\n\ncap_can_du_doan = spark.createDataFrame(\n    [(2, 105), (4, 102)], [\"userId\", \"movieId\"])\nals_model.transform(cap_can_du_doan).show()\n\nals_model.recommendForAllUsers(2).show(truncate=False)",
+   "prep": null,
+   "skip": null
+  },
+  {
+   "ch": 8,
+   "num": 1,
+   "title": "Suy luận phân tán mô hình Keras trên Spark bằng mapInPandas.",
+   "code": "import numpy as np\nimport pandas as pd\n\nMODEL_PATH = \"models/image_classifier.keras\"\n\ndef predict_batch(iterator):\n    # Nap mo hinh MOT LAN cho moi partition, dung lai cho moi lo\n    import tensorflow as tf\n    model = tf.keras.models.load_model(MODEL_PATH)\n    for pdf in iterator:\n        X = np.stack(pdf[\"features\"].to_numpy())\n        probs = model.predict(X, batch_size=256, verbose=0)\n        yield pd.DataFrame({\n            \"id\": pdf[\"id\"],\n            \"label_pred\": probs.argmax(axis=1),\n            \"confidence\": probs.max(axis=1)})\n\ndf_pred = df_features.mapInPandas(\n    predict_batch,\n    schema=\"id long, label_pred int, confidence float\")\n(df_pred.write.mode(\"overwrite\")\n    .parquet(\"output/predictions\"))",
+   "prep": null,
+   "skip": "cần TensorFlow + mô hình đã huấn luyện (GPU)"
+  },
+  {
+   "ch": 8,
+   "num": 2,
+   "title": "Khung huấn luyện phân tán PyTorch với TorchDistributor (Spark 3.4 trở lên).",
+   "code": "from pyspark.ml.torch.distributor import TorchDistributor\n\ndef train_fn(lr, epochs):\n    import os\n    import torch\n    import torch.distributed as dist\n    from torch.nn.parallel import DistributedDataParallel as DDP\n\n    dist.init_process_group(backend=\"nccl\")\n    rank = dist.get_rank()\n    local_rank = int(os.environ[\"LOCAL_RANK\"])  # GPU cuc bo\n    device = torch.device(f\"cuda:{local_rank}\")\n\n    model = build_model().to(device)  # do nguoi dung dinh nghia\n    model = DDP(model, device_ids=[local_rank])\n    optimizer = torch.optim.Adam(model.parameters(), lr=lr)\n\n    for epoch in range(epochs):\n        # moi rank doc mot shard du lieu rieng\n        for X, y in make_dataloader(rank):\n            optimizer.zero_grad()\n            loss = torch.nn.functional.cross_entropy(\n                model(X.to(device)), y.to(device))\n            loss.backward()        # DDP tu dong all-reduce gradient\n            optimizer.step()\n    if rank == 0:\n        torch.save(model.module.state_dict(), \"models/net.pt\")\n\ndistributor = TorchDistributor(num_processes=8,\n                               local_mode=False, use_gpu=True)\ndistributor.run(train_fn, lr=1e-3, epochs=10)",
+   "prep": null,
+   "skip": "cần cụm GPU và hàm build_model, make_dataloader của người học"
+  },
+  {
+   "ch": 8,
+   "num": 3,
+   "title": "Khung huấn luyện Keras phân tán với Horovod.",
+   "code": "import tensorflow as tf\nimport horovod.tensorflow.keras as hvd\n\nhvd.init()                          # 1. Khoi tao Horovod\n\n# 2. Gan (pin) moi tien trinh voi mot GPU cuc bo\ngpus = tf.config.list_physical_devices(\"GPU\")\nif gpus:\n    tf.config.set_visible_devices(gpus[hvd.local_rank()], \"GPU\")\n\nmodel = build_model()\n# 3. Scale learning rate theo so worker\nopt = tf.keras.optimizers.SGD(learning_rate=0.01 * hvd.size())\n# 4. Boc optimizer de dong bo gradient bang All-Reduce\nopt = hvd.DistributedOptimizer(opt)\nmodel.compile(optimizer=opt,\n              loss=\"sparse_categorical_crossentropy\",\n              metrics=[\"accuracy\"])\n\ncallbacks = [\n    # 5. Phat trong so ban dau tu rank 0 toi moi worker\n    hvd.callbacks.BroadcastGlobalVariablesCallback(0),\n    hvd.callbacks.MetricAverageCallback(),\n]\nif hvd.rank() == 0:                 # chi rank 0 ghi checkpoint\n    callbacks.append(\n        tf.keras.callbacks.ModelCheckpoint(\"models/ckpt/best.keras\"))\n\nmodel.fit(train_dataset, epochs=20, callbacks=callbacks,\n          verbose=1 if hvd.rank() == 0 else 0)",
+   "prep": null,
+   "skip": "cần Horovod + GPU"
+  },
+  {
+   "ch": 8,
+   "num": 4,
+   "title": "Theo dõi thí nghiệm và đăng ký mô hình Keras với MLflow.",
+   "code": "import mlflow\nimport mlflow.tensorflow\n\nmlflow.set_experiment(\"image-classifier\")\nmlflow.tensorflow.autolog()   # tu dong log tham so, metric, mo hinh\n\nwith mlflow.start_run(run_name=\"cnn_baseline\"):\n    mlflow.log_param(\"batch_size\", 128)\n    mlflow.log_param(\"learning_rate\", 1e-3)\n    history = model.fit(train_ds, validation_data=val_ds, epochs=20)\n    best_acc = max(history.history[\"val_accuracy\"])\n    mlflow.log_metric(\"best_val_accuracy\", best_acc)\n    mlflow.log_artifact(\"confusion_matrix.png\")\n    mlflow.tensorflow.log_model(\n        model, artifact_path=\"model\",\n        registered_model_name=\"cnn_classifier\")\n\n# Nap phien ban dang o giai doan Production tu Model Registry\nmodel_prod = mlflow.pyfunc.load_model(\n    \"models:/cnn_classifier/Production\")\npreds = model_prod.predict(new_data)",
+   "prep": null,
+   "skip": "cần TensorFlow + MLflow server"
+  },
+  {
+   "ch": 8,
+   "num": 5,
+   "title": "Suy luận phân tán bằng mapInPandas.",
+   "code": "import numpy as np\nimport pandas as pd\n\ndef du_doan(cac_lo):\n    import tensorflow as tf\n    # nap mo hinh MOT LAN cho moi partition\n    model = tf.keras.models.load_model(\"models/model.h5\")\n    for lo in cac_lo:              # moi lo la mot pandas DataFrame\n        X = np.stack(lo[\"dac_trung\"].to_numpy())\n        lo[\"nhan\"] = model.predict(X).argmax(axis=1)\n        yield lo[[\"id\", \"nhan\"]]\n\nketqua = df.mapInPandas(du_doan, schema=\"id string, nhan int\")\nketqua.write.mode(\"overwrite\").parquet(\"output/ketqua_du_doan\")",
+   "prep": null,
+   "skip": "cần TensorFlow + mô hình đã huấn luyện"
+  }
+ ]
+}
