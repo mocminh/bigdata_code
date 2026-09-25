@@ -1,0 +1,6 @@
+# Chương 8 – học sâu trên dữ liệu lớn (cần GPU). Cài sau requirements.txt.
+mlflow==2.17.2
+tensorflow==2.15.1
+torch==2.4.1
+horovod==0.28.1
+petastorm==0.12.1

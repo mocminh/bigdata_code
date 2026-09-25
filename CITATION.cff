@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "Nếu sử dụng mã nguồn hoặc dữ liệu trong kho này, vui lòng trích dẫn giáo trình theo thông tin dưới đây."
+title: "Giáo trình Dữ liệu lớn — Mã nguồn và dữ liệu thực hành"
+type: software
+authors:
+  - family-names: "Huỳnh"
+    given-names: "Đệ Thủ"
+    affiliation: "Trường Đại học Quốc tế Sài Gòn"
+  - family-names: "Hồ"
+    given-names: "Nhựt Minh"
+    affiliation: "Trường Đại học Quốc tế Sài Gòn"
+repository-code: "https://github.com/mocminh/bigdata_code"
+license: MIT
+version: 1.0.0
+date-released: "2026-09-25"
+keywords:
+  - big data
+  - Apache Spark
+  - PySpark
+  - Spark MLlib
+  - giáo trình
+preferred-citation:
+  type: book
+  title: "Giáo trình Dữ liệu lớn"
+  authors:
+    - family-names: "Huỳnh"
+      given-names: "Đệ Thủ"
+    - family-names: "Hồ"
+      given-names: "Nhựt Minh"
+  publisher:
+    name: "Trường Đại học Quốc tế Sài Gòn"
+  year: 2026
+  url: "https://github.com/mocminh/bigdata_code"

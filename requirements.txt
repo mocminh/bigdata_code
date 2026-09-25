@@ -1,0 +1,7 @@
+# Môi trường tham chiếu của giáo trình Dữ liệu lớn (Chương 1–7) – Bảng 2.3
+pyspark==3.5.7
+py4j==0.10.9.7
+pandas==2.2.2
+numpy==1.26.4
+pyarrow==16.1.0
+matplotlib==3.9.2

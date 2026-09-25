@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+models/
+output/
+spark-warehouse/
+derby.log
+metastore_db/
+*.png
+tien_ich.zip
+!code/ch02/tien_ich.zip
+ml-latest-small*
+data/movielens/ratings.csv

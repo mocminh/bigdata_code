@@ -1,0 +1,9 @@
+name: mtspark
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - openjdk=17
+  - pip
+  - pip:
+      - -r requirements.txt
