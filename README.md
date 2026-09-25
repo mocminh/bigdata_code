@@ -132,6 +132,8 @@ Mã nguồn khớp với bản in của giáo trình (2026) và dùng API PySpar
 Các đoạn mã Chương 8 cần GPU và các thư viện trong `requirements-ch08.txt`
 (TensorFlow 2.15.1 – Keras 2 để tương thích Horovod 0.28.1; PyTorch 2.4.1; MLflow 2.17.2).
 Với TensorFlow ≥ 2.16 (Keras 3) hãy cài thêm `tf-keras` và đặt `TF_USE_LEGACY_KERAS=1`.
+Dự án Horovod đã được lưu trữ (archived) vào tháng 9/2026 và 0.28.1 là phiên bản cuối: thư viện vẫn cài và chạy được
+với môi trường trên, nhưng với dự án mới nên ưu tiên TorchDistributor (Đoạn mã 8.2) hoặc `tf.distribute`.
 Notebook `ch08.ipynb` dùng để đọc và chỉnh sửa mã, không chạy trực tiếp trên Colab miễn phí.
 
 ## Báo lỗi và góp ý
